@@ -11,13 +11,14 @@ import numpy as np
 import scipy.fftpack
 import sounddevice as sd
 import time
+import threading as th
 
 # General settings that can be changed by the user
 SAMPLE_FREQ = 48000 # sample frequency in Hz
 WINDOW_SIZE = 48000 # window size of the DFT in samples
 WINDOW_STEP = 12000 # step size of window
 NUM_HPS = 5 # max number of harmonic product spectrums
-POWER_THRESH = 1e-6 # tuning is activated if the signal power exceeds this threshold
+POWER_THRESH =2e-5 # tuning is activated if the signal power exceeds this threshold
 CONCERT_PITCH = 440 # defining a1
 WHITE_NOISE_THRESH = 0.2 # everything under WHITE_NOISE_THRESH*avg_energy_per_freq is cut off
 
@@ -27,6 +28,10 @@ DELTA_FREQ = SAMPLE_FREQ / WINDOW_SIZE # frequency step width of the interpolate
 OCTAVE_BANDS = [50, 100, 200, 400, 800, 1600, 3200, 6400, 12800, 25600]
 
 ALL_NOTES = ["A","A#","B","C","C#","D","D#","E","F","F#","G","G#"]
+
+tuning_state=""
+sem_tuning_state = th.Semaphore(0)
+
 def find_closest_note(pitch):
   """
   This function finds the closest note for a given pitch
@@ -64,7 +69,7 @@ def callback(indata, frames, time, status):
     signal_power = (np.linalg.norm(callback.window_samples, ord=2, axis=0)**2) / len(callback.window_samples)
     if signal_power < POWER_THRESH:
       os.system('cls' if os.name=='nt' else 'clear')
-      print("Closest note: ...")
+      ##print("Closest note: ...")
       return
 
     # avoid spectral leakage by multiplying the signal with a hann window
@@ -112,17 +117,43 @@ def callback(indata, frames, time, status):
 
     os.system('cls' if os.name=='nt' else 'clear')
     if callback.noteBuffer.count(callback.noteBuffer[0]) == len(callback.noteBuffer):
-      print(f"Closest note: {closest_note} {max_freq}/{closest_pitch}")
-    else:
-      print(f"Closest note: ...")
+      result = int(max_freq) - int(closest_pitch)
+      print("")
+      print("---------------------------------------------------------------------------------------------------")
+      print( f"Closest note: {closest_note} {max_freq}/{closest_pitch}")
+      if result>0:
+        print(f"Tuning result: +{int(max_freq)-int(closest_pitch)}")
+      else:
+        print(f"Tuning result: {int(max_freq) - int(closest_pitch)}")
+      print("---------------------------------------------------------------------------------------------------")
+
+    # else:
+    #   print(f"Closest note: ...")
 
   else:
     print('no input')
 
-try:
-  print("Starting HPS guitar tuner...")
-  with sd.InputStream(channels=1, callback=callback, blocksize=WINDOW_STEP, samplerate=SAMPLE_FREQ):
-    while True:
-      time.sleep(0.5)
-except Exception as exc:
-  print(str(exc))
+
+def listen_audio():
+  try:
+    print("Starting HPS guitar tuner...")
+    with sd.InputStream(channels=1, callback=callback, blocksize=WINDOW_STEP, samplerate=SAMPLE_FREQ):
+      while True:
+        time.sleep(0.5)
+  except Exception as exc:
+    print(str(exc))
+
+# def print_tuning_state():
+#   global sem_tuning_state
+#   global tuning_state
+#   while True:
+#     sem_tuning_state.acquire()
+#     print(tuning_state)
+#
+# thread_listen_audio = th.Thread(target = listen_audio)
+# thread_print_tuning_state = th.Thread(target = print_tuning_state )
+
+listen_audio()
+
+# thread_listen_audio.start()
+# thread_print_tuning_state.start()
