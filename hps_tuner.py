@@ -1,17 +1,11 @@
-'''
-Guitar tuner script based on the Harmonic Product Spectrum (HPS)
-
-MIT License
-Copyright (c) 2021 chciken
-'''
-
 import copy
 import os
+import threading as th
+import time
+
 import numpy as np
 import scipy.fftpack
 import sounddevice as sd
-import time
-import threading as th
 
 # General settings that can be changed by the user
 SAMPLE_FREQ = 48000 # sample frequency in Hz
@@ -29,17 +23,9 @@ OCTAVE_BANDS = [50, 100, 200, 400, 800, 1600, 3200, 6400, 12800, 25600]
 
 ALL_NOTES = ["A","A#","B","C","C#","D","D#","E","F","F#","G","G#"]
 
-tuning_state=""
-sem_tuning_state = th.Semaphore(0)
-
 def find_closest_note(pitch):
   """
-  This function finds the closest note for a given pitch
-  Parameters:
-    pitch (float): pitch given in hertz
-  Returns:
-    closest_note (str): e.g. a, g#, ..
-    closest_pitch (float): pitch of the closest note in hertz
+  Encuentra la nota más cercana para un pico en la señal
   """
   i = int(np.round(np.log2(pitch/CONCERT_PITCH)*12))
   closest_note = ALL_NOTES[i%12] + str(4 + (i + 9) // 12)
@@ -126,10 +112,6 @@ def callback(indata, frames, time, status):
       else:
         print(f"Tuning result: {int(max_freq) - int(closest_pitch)}")
       print("---------------------------------------------------------------------------------------------------")
-
-    # else:
-    #   print(f"Closest note: ...")
-
   else:
     print('no input')
 
@@ -143,17 +125,4 @@ def listen_audio():
   except Exception as exc:
     print(str(exc))
 
-# def print_tuning_state():
-#   global sem_tuning_state
-#   global tuning_state
-#   while True:
-#     sem_tuning_state.acquire()
-#     print(tuning_state)
-#
-# thread_listen_audio = th.Thread(target = listen_audio)
-# thread_print_tuning_state = th.Thread(target = print_tuning_state )
-
 listen_audio()
-
-# thread_listen_audio.start()
-# thread_print_tuning_state.start()
