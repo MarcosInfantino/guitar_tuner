@@ -34,13 +34,9 @@ def find_closest_note(pitch):
 
 HANN_WINDOW = np.hanning(WINDOW_SIZE)
 def callback(indata, frames, time, status):
-  """
-  Callback function of the InputStream method.
-  That's where the magic happens ;)
-  """
   # define static variables
   if not hasattr(callback, "window_samples"):
-    callback.window_samples = [0 for _ in range(WINDOW_SIZE)]
+    callback.window_samples = [0 for _ in range(WINDOW_SIZE)]#saca el muestro del mic
   if not hasattr(callback, "noteBuffer"):
     callback.noteBuffer = ["1","2"]
 
@@ -48,26 +44,27 @@ def callback(indata, frames, time, status):
     print(status)
     return
   if any(indata):
-    callback.window_samples = np.concatenate((callback.window_samples, indata[:, 0])) # append new samples
-    callback.window_samples = callback.window_samples[len(indata[:, 0]):] # remove old samples
+    callback.window_samples = np.concatenate((callback.window_samples, indata[:, 0])) # agrega los nuevos samples
+    callback.window_samples = callback.window_samples[len(indata[:, 0]):] # remueve los samples de la afinación anterior
 
-    # skip if signal power is too low
+    # si la intensidad de la señal es muy baja, skipea esta iteración
     signal_power = (np.linalg.norm(callback.window_samples, ord=2, axis=0)**2) / len(callback.window_samples)
     if signal_power < POWER_THRESH:
       os.system('cls' if os.name=='nt' else 'clear')
-      ##print("Closest note: ...")
       return
 
     # avoid spectral leakage by multiplying the signal with a hann window
+    #TODO: investigar
     hann_samples = callback.window_samples * HANN_WINDOW
     magnitude_spec = abs(scipy.fftpack.fft(hann_samples)[:len(hann_samples)//2])
 
-    # supress mains hum, set everything below 62Hz to zero
+    # supresión de ruidos por debajo de los 62hz, con esta supresión aún puede afinarse hasta drop C
     for i in range(int(62/DELTA_FREQ)):
       magnitude_spec[i] = 0
 
-    # calculate average energy per frequency for the octave bands
-    # and suppress everything below it
+    # se calcula la energía promedio de la señal entera
+    # y se suprime toda señal con una energía menor
+    # esto permite suprimir el white noise (HPS no logra suprimir el white noise de la mejor manera)
     for j in range(len(OCTAVE_BANDS)-1):
       ind_start = int(OCTAVE_BANDS[j]/DELTA_FREQ)
       ind_end = int(OCTAVE_BANDS[j+1]/DELTA_FREQ)
@@ -77,14 +74,15 @@ def callback(indata, frames, time, status):
       for i in range(ind_start, ind_end):
         magnitude_spec[i] = magnitude_spec[i] if magnitude_spec[i] > WHITE_NOISE_THRESH*avg_energy_per_freq else 0
 
-    # interpolate spectrum
+    # se interpola el espectro
+    # esto es necesario, ya que más abajo sea downsamplea cuando se hace el HPS
     mag_spec_ipol = np.interp(np.arange(0, len(magnitude_spec), 1/NUM_HPS), np.arange(0, len(magnitude_spec)),
                               magnitude_spec)
     mag_spec_ipol = mag_spec_ipol / np.linalg.norm(mag_spec_ipol, ord=2, axis=0) #normalize it
 
     hps_spec = copy.deepcopy(mag_spec_ipol)
 
-    # calculate the HPS
+    # se calcula el HPS para disminuir la intensidad de los armónicos
     for i in range(NUM_HPS):
       tmp_hps_spec = np.multiply(hps_spec[:int(np.ceil(len(mag_spec_ipol)/(i+1)))], mag_spec_ipol[::(i+1)])
       if not any(tmp_hps_spec):
