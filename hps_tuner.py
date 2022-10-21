@@ -53,7 +53,7 @@ def callback(indata, frames, time, status):
       os.system('cls' if os.name=='nt' else 'clear')
       return
 
-    # avoid spectral leakage by multiplying the signal with a hann window
+    # multiplicación por ventana de Hann para evitar spectral leakage
     hann_samples = callback.window_samples * HANN_WINDOW
     magnitude_spec = abs(scipy.fftpack.fft(hann_samples)[:len(hann_samples)//2])
 
@@ -77,7 +77,7 @@ def callback(indata, frames, time, status):
     # esto es necesario, ya que más abajo sea downsamplea cuando se hace el HPS
     mag_spec_ipol = np.interp(np.arange(0, len(magnitude_spec), 1/NUM_HPS), np.arange(0, len(magnitude_spec)),
                               magnitude_spec)
-    mag_spec_ipol = mag_spec_ipol / np.linalg.norm(mag_spec_ipol, ord=2, axis=0) #normalize it
+    mag_spec_ipol = mag_spec_ipol / np.linalg.norm(mag_spec_ipol, ord=2, axis=0)
 
     hps_spec = copy.deepcopy(mag_spec_ipol)
 
