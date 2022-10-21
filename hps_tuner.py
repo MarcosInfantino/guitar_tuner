@@ -7,17 +7,17 @@ import numpy as np
 import scipy.fftpack
 import sounddevice as sd
 
-# General settings that can be changed by the user
-SAMPLE_FREQ = 48000 # sample frequency in Hz
-WINDOW_SIZE = 48000 # window size of the DFT in samples
+# Settings generales
+SAMPLE_FREQ = 48000 # frecuencia de muestreo en Hz
+WINDOW_SIZE = 48000 # tamaño de la ventana de la DFT medida en muestras
 WINDOW_STEP = 12000 # step size of window
-NUM_HPS = 5 # max number of harmonic product spectrums
-POWER_THRESH =2e-5 # tuning is activated if the signal power exceeds this threshold
-CONCERT_PITCH = 440 # defining a1
-WHITE_NOISE_THRESH = 0.2 # everything under WHITE_NOISE_THRESH*avg_energy_per_freq is cut off
+NUM_HPS = 5 # máximo de espectros armónicos a utilizar
+POWER_THRESH =2e-5 # límiter de energía de la señal a apartir del cual se activa el afinador
+CONCERT_PITCH = 440
+WHITE_NOISE_THRESH = 0.2 # todo lo que esté por debajo de WHITE_NOISE_THRESH*avg_energy_per_freq es considerado WHITE NOISE y no se tiene en cuenta
 
-WINDOW_T_LEN = WINDOW_SIZE / SAMPLE_FREQ # length of the window in seconds
-SAMPLE_T_LENGTH = 1 / SAMPLE_FREQ # length between two samples in seconds
+WINDOW_T_LEN = WINDOW_SIZE / SAMPLE_FREQ # longitud de la ventana en segundos
+SAMPLE_T_LENGTH = 1 / SAMPLE_FREQ # longitud entre dos muestras en segundos
 DELTA_FREQ = SAMPLE_FREQ / WINDOW_SIZE # frequency step width of the interpolated DFT
 OCTAVE_BANDS = [50, 100, 200, 400, 800, 1600, 3200, 6400, 12800, 25600]
 
@@ -54,7 +54,6 @@ def callback(indata, frames, time, status):
       return
 
     # avoid spectral leakage by multiplying the signal with a hann window
-    #TODO: investigar
     hann_samples = callback.window_samples * HANN_WINDOW
     magnitude_spec = abs(scipy.fftpack.fft(hann_samples)[:len(hann_samples)//2])
 
@@ -104,11 +103,11 @@ def callback(indata, frames, time, status):
       result = int(max_freq) - int(closest_pitch)
       print("")
       print("---------------------------------------------------------------------------------------------------")
-      print( f"Closest note: {closest_note} {max_freq}/{closest_pitch}")
+      print( f"Nota más cercana: {closest_note} {max_freq}/{closest_pitch}")
       if result>0:
-        print(f"Tuning result: +{int(max_freq)-int(closest_pitch)}")
+        print(f"Resultado de la afinación: +{int(max_freq)-int(closest_pitch)}")
       else:
-        print(f"Tuning result: {int(max_freq) - int(closest_pitch)}")
+        print(f"Resultado de la afinación: {int(max_freq) - int(closest_pitch)}")
       print("---------------------------------------------------------------------------------------------------")
   else:
     print('no input')
@@ -116,7 +115,7 @@ def callback(indata, frames, time, status):
 
 def listen_audio():
   try:
-    print("Starting HPS guitar tuner...")
+    print("Iniciando el afinador...")
     with sd.InputStream(channels=1, callback=callback, blocksize=WINDOW_STEP, samplerate=SAMPLE_FREQ):
       while True:
         time.sleep(0.5)
